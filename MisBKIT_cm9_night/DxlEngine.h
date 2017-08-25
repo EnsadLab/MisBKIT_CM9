@@ -21,6 +21,8 @@
 #define P_MX_I 27
 #define P_MX_P 28
 //AX
+#define P_CW_COMPLIANCE_GAP     26
+#define P_CCW_COMPLIANCE_GAP    27
 #define P_CW_COMPLIANCE_SLOPE   28
 #define P_CCW_COMPLIANCE_SLOPE  29
 
@@ -59,9 +61,13 @@ class DxlEngine
   int minPos,maxPos;
   int currPos;
   int torqueLimit;
+  int currentMode;
   int cmdMode;
-  int cmdGoal;
-  int cmdSpeed;
+  int cmdCW;
+  int cmdCCW;
+  int cmdGoal;  //synchronised
+  int cmdSpeed; //synchronised
+  int cmdTorque;
     
   //Script anim;
   

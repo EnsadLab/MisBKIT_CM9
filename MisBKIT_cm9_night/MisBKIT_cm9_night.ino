@@ -8,7 +8,6 @@
 #include "osc.h"
 //#include "EEPROM.h"
 
-//const char* cm9Name  ="MisBKit010"; //Soft Access Point ssid
 const char* cm9Name="CM9_Didier";     //Soft Access Point ssid
 const char* cm9Pswd  ="ensad-mbk";  //password
 
@@ -52,7 +51,7 @@ void setup()
   //CM9_EEPROM.begin();
   //xSerialUSB.begin(115200); //INUTILE !!! ?
       
-  delay(2000);
+  delay(1000);
   xSerialESP.begin(115200);
   pSerial = &xSerialESP;
 
@@ -120,8 +119,7 @@ void loop()
           case 'o':
             if( strBegin(str,"off")){
               usbEnabled=false;
-            }
-          
+            }   
         }
       }
     }//str
@@ -156,26 +154,7 @@ void loop()
       digitalWrite(BOARD_LED_PIN, HIGH);          
   }
   
-  mbkUpdate();
-  
-/*  
-  unsigned long t = millis();
-  
-  //DxlEngine::update();
-  
-  if( (t-loopTime)>=40 ){
-    loopTime = t;
-    DxlEngine::syncGoals();
-    DxlEngine::syncSpeeds();
-
-    //float s = sinOSC();
-    //SerialUSB.println("---");
-    //SerialUSB.println(xSerialUSB.count);
-    //SerialUSB.println(s2count);
-    //testSinus();
-    //SerialUSB.println(s);
-  }
-  */
+  mbkUpdate();  
 }
 /*
 float angle = 0;

@@ -217,7 +217,7 @@ void DxlEngine::parseCmd(char* pBuf){
     while( (*p1>0)&&(*p1<=' ') ){*p1=0;p1++;} //skip cr lf space
     
     DxlEngine::execCmd(pCmd,params,nbParams);
-    LOGUSB("parsed:",pCmd);
+    //LOGUSB("parsed:",pCmd);
     delay(0);
   }//next cmd
   delay(0);
@@ -393,7 +393,7 @@ void DxlEngine::syncSpeeds(){
       Dxl.pushByte(engines[i].dxlId);
       Dxl.pushByte(s & 0xFF);
       Dxl.pushByte(s >> 8);
-      LOGUSB("sync",s);
+      //LOGUSB("sync",s);
      len+=3; 
     }
   }
@@ -508,7 +508,7 @@ void DxlEngine::setId(int id)
 {
   dxlId = id;  
   init();
-  LOGUSB("setId",dxlId);
+  //LOGUSB("setId:",dxlId);
 }
 
 
@@ -522,19 +522,25 @@ void DxlEngine::init()
   minPos = 0;
   maxPos = 1023; //4095;  //MX28 64 106 ...
   torqueLimit = 1000;
+  //cmdModel = -1;
+  currentMode = -1;
+  cmdMode  = -1;
+  cmdCW    = -1;
+  cmdCCW   = -1;
   cmdGoal  = -1;
   cmdSpeed = -1;
+  cmdTorque= -1;
 
   if( dxlId<=0 )
     return;
-  
+/*  
   int m = getModel();
   minPos = 0;
   if(m==12)  //AX12
     maxPos = 1023;
   else
     maxPos = 4095;
-  
+*/  
   //anim.init(this);
   
   /*
@@ -605,16 +611,40 @@ bool DxlEngine::update(unsigned int t)
       
     break;
   }
+
+  if( (cmdGoal>=0)&&(currentMode!=JOINT_MODE)){
+    cmdMode = JOINT_MODE;
+  }
+  else if( (cmdSpeed !=-1)&&(cmdSpeed !=0)&&(currentMode!=WHEEL_MODE)){
+    cmdMode = WHEEL_MODE;    
+  }
+  
+  
+  if(cmdCW>=0){
+    dxlWriteWord(dxlId,P_CW_ANGLE_LIMIT_L,cmdCW);
+    cmdCW = -1;
+  }
+  if(cmdCCW>=0){
+    dxlWriteWord(dxlId,P_CCW_ANGLE_LIMIT_L,cmdCCW);
+    cmdCCW = -1;
+  }
+  if(cmdTorque>=0){
+    dxlWriteWord(dxlId,P_TORQUE_LIMIT_L,cmdTorque);
+    cmdTorque = -1;
+  }
+    
   if(cmdMode == JOINT_MODE){ //TODO try sync
-    //Dxl.writeWord(dxlId,P_CW_ANGLE_LIMIT_L,minPos); //(GOAL_RANGE-1));
-    Dxl.writeWord(dxlId,P_CCW_ANGLE_LIMIT_L,maxPos); //(GOAL_RANGE-1));
-    LOGUSB("JOINT_MODE2",model);
+    dxlWriteWord(dxlId,P_CCW_ANGLE_LIMIT_L,maxPos); //(GOAL_RANGE-1));
+    dxlWriteWord(dxlId,P_GOAL_SPEED_L,0); //(GOAL_RANGE-1));
+    LOGUSB("cmd JOINT_MODE:",cmdGoal);
+    currentMode =JOINT_MODE;
     cmdMode = -1;
   }
   else if(cmdMode == WHEEL_MODE){ //TODO try sync
-    //Dxl.writeWord(dxlId,P_CCW_ANGLE_LIMIT_L,0);
-    LOGUSB("WHEEL_MODE2",model);
-    Dxl.writeWord(dxlId,P_CCW_ANGLE_LIMIT_L,0);
+    LOGUSB("cmd WHEEL_MODE",cmdSpeed);
+    dxlWriteWord(dxlId,P_CCW_ANGLE_LIMIT_L,0);
+    dxlWriteWord(dxlId,P_GOAL_SPEED_L,0);
+    currentMode = WHEEL_MODE;
     cmdMode = -1;
   }
   
@@ -631,7 +661,7 @@ void  DxlEngine::onCmd(const char* cmd,float* pParam,int nbp )
   {
     if(nbp==1)
       setId(param0);
-      LOGUSB("onCmd:EI:",dxlId);
+      //LOGUSB("onCmd:EI:",dxlId);
     return;
   }
 
@@ -677,10 +707,7 @@ void  DxlEngine::onCmd(const char* cmd,float* pParam,int nbp )
 }
 
 void DxlEngine::setDxlValue(int addr,int val)
-{
-  //if(addr<P_CW_ANGLE_LIMIT_L) //PROTECTED
-  //  return;
-  
+{  
   if(dxlId<=0)
   {
     //serialSend("!Bad Motor ID:",index);
@@ -698,13 +725,17 @@ void DxlEngine::setDxlValue(int addr,int val)
     break;
     
     case P_CW_ANGLE_LIMIT_L:
-      Dxl.writeWord(dxlId,P_CW_ANGLE_LIMIT_L,val);
+      //Dxl.writeWord(dxlId,P_CW_ANGLE_LIMIT_L,val);
+      //dxlWriteWord(dxlId,P_CW_ANGLE_LIMIT_L,val);
+      cmdCW = val;
       break;
 
     case P_CCW_ANGLE_LIMIT_L:  
       //if(val<=0) setWheelMode();  //!!! assume cw limit == 0 !!!
       //else {setJointMode();} 
-      Dxl.writeWord(dxlId,P_CCW_ANGLE_LIMIT_L,val);
+      //Dxl.writeWord(dxlId,P_CCW_ANGLE_LIMIT_L,val);
+      // dxlWriteWord(dxlId,P_CCW_ANGLE_LIMIT_L,val);
+      cmdCCW = val;
       break;
 
     case P_CW_COMPLIANCE_SLOPE:
@@ -723,15 +754,17 @@ void DxlEngine::setDxlValue(int addr,int val)
     case P_GOAL_SPEED_L:
         //if(val<0)val=1024-val;
         //Dxl.writeWord(dxlId,P_GOAL_SPEED_L,val);
-        if(val!=-1){ //-1 = disable ???
+        if(val!=-1){ //-1 = disable ??? anyway speed -1 ne bouge pas !
           if(val<0)val=1024-val;
           cmdSpeed = val;
+          //LOGUSB("cmdSpeed:",cmdSpeed);
         }
         break;
         
     case P_TORQUE_LIMIT_L :
         //setTorque(val);
-        Dxl.writeWord(dxlId,P_TORQUE_LIMIT_L,val);
+        //Dxl.writeWord(dxlId,P_TORQUE_LIMIT_L,val);
+        cmdTorque = val;
         break;
     
     default:
@@ -914,28 +947,30 @@ void DxlEngine::setWheelMode()
     //dxlWrite(dxlId,P_CW_ANGLE_LIMIT_L,0);
     //dxlWrite(dxlId,P_CCW_ANGLE_LIMIT_L,0);
     //delay(1);
-    LOGUSB("WHEEL1:",maxPos);
-    dxlWriteWord(dxlId,P_CCW_ANGLE_LIMIT_L,0);
+    //LOGUSB("WHEEL1:",maxPos);
+    //dxlWriteWord(dxlId,P_CCW_ANGLE_LIMIT_L,0);
 
     //Dxl.writeWord(dxlId,P_CCW_ANGLE_LIMIT_L,0);
     //delay(10);
     //Dxl.writeWord(dxlId,P_CCW_ANGLE_LIMIT_L,0);
     //delay(10);
     
-    dxlWriteWord(dxlId,P_TORQUE_LIMIT_L,1023);
+    //dxlWriteWord(dxlId,P_TORQUE_LIMIT_L,1023);
     //dxlWrite(dxlId,P_GOAL_SPEED_L,0);
 
     //delay(1); 
     //dxlWrite(dxlId,P_CCW_ANGLE_LIMIT_L,0); //GRRR marche pas à tous les coups
     //getModel();
     //cmdMode = WHEEL_MODE;
+    cmdCCW   = 0;
     cmdSpeed = 0;    
+    cmdTorque = 1020;
   }
 }
 
 void DxlEngine::setJointMode()
 {
-  LOGUSB("setJointMode:",dxlId);
+  //LOGUSB("setJointMode:",dxlId);
   if(dxlId>=0){
      if(model<=0)
        getModel();
@@ -955,17 +990,20 @@ void DxlEngine::setJointMode()
     dxlWrite(dxlId,P_CCW_ANGLE_LIMIT_L,4095); //(GOAL_RANGE-1));
     delay(10);
     */
-      LOGUSB("JOINT1:",maxPos);
+      //LOGUSB("JOINT1:",maxPos);
       if(currPos>=0)
-        dxlWriteWord(dxlId,P_GOAL_POSITION_L,currPos);      
-      dxlWriteWord(dxlId,P_CCW_ANGLE_LIMIT_L,(word)maxPos);
-      dxlWriteWord(dxlId,P_TORQUE_LIMIT_L,1020);
+        cmdGoal = currPos;
+      cmdSpeed = 0;
+      cmdCCW  = maxPos;
+      cmdTorque = 1020;
+//        dxlWriteWord(dxlId,P_GOAL_POSITION_L,currPos);      
+//      dxlWriteWord(dxlId,P_CCW_ANGLE_LIMIT_L,(word)maxPos);
+//      dxlWriteWord(dxlId,P_TORQUE_LIMIT_L,1020);
       //Dxl.writeWord(dxlId,P_CCW_ANGLE_LIMIT_L,1023); //(GOAL_RANGE-1));
       //delay(10);
       //Dxl.writeWord(dxlId,P_CCW_ANGLE_LIMIT_L,1023); //(GOAL_RANGE-1));
       //delay(10);
     //cmdMode = JOINT_MODE;
-      cmdSpeed = 0;
     //Dxl.writeWord(dxlId,P_CCW_ANGLE_LIMIT_L,4090);
     //dxlWrite(dxlId,P_GOAL_SPEED_L,0); //vmax
     //delay(10);

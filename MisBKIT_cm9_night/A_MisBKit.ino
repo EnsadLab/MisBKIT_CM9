@@ -150,10 +150,11 @@ void mbkExecCmd(char* pcmd,float* pParams,int nbParams){
 //-------------------------
 void mbkUpdate(){
   unsigned long t = millis(); 
-  mbkTemperature(t);
+  //mbkTemperature(t);
 
   if( (t-mbkFrameTime)<50 ){
-    //mbkTemperature(t);
+    mbkSensors(t);
+    mbkTemperature(t);
     return;
   }
   
@@ -172,7 +173,7 @@ void mbkUpdate(){
   else
     DxlEngine::sendAllPos();
     
-  mbkSensors(t);
+  //mbkSensors(t);
     
 }
 
@@ -185,26 +186,42 @@ void mbkTemperature(unsigned long t){
       //int tmp = Dxl.readByte((uint8)imot,(uint8)ireg);
       int tp = dxlRead(engines[mbkTemperatureIndex].dxlId,P_TEMPERATURE);
       pSerial->sendf("temperature %i %i\n",mbkTemperatureIndex,tp);           
-      LOGUSB("temperaturev:",tp);
+      //LOGUSB("temperaturev:",tp);
     }    
   }
 }
 
 void mbkSensors(unsigned long t){
-  /*
-  //if( (t-mbkSensorTime)>50 ){
+  if( (t-mbkSensorTime)>100 ){
     mbkSensorTime = t;
-    mbkAnalogs[mbkSensorIndex]=analogRead(mbkSensorIndex+6);
-    if(++mbkSensorIndex>3){
-      mbkSensorIndex=0;
-      pSerial->sendf("analogs %i %i %i %i\n",mbkAnalogs[0],mbkAnalogs[1],mbkAnalogs[2],mbkAnalogs[3]);
+    mbkAnalogs[0]=analogRead(0);
+    mbkAnalogs[1]=analogRead(1);
+    mbkAnalogs[2]=analogRead(2);
+    mbkAnalogs[3]=analogRead(3);
+    mbkAnalogs[6]=analogRead(6);
+    mbkAnalogs[7]=analogRead(7);
+    mbkAnalogs[8]=analogRead(8);
+    mbkAnalogs[9]=analogRead(9);
+    /*
+    for(int i=0;i<10;i++){
+      mbkAnalogs[i]=analogRead(i);
     }
-  //}
-  */
-  for(int i=0;i<4;i++){
-    mbkAnalogs[i]=analogRead(i+6);
+    */
+    
+    pSerial->sendf("analogs %i %i %i %i %i %i %i %i %i\n",
+      mbkAnalogs[0],
+      mbkAnalogs[1],
+      mbkAnalogs[2],
+      mbkAnalogs[3],
+      mbkAnalogs[4],
+      mbkAnalogs[5],
+      mbkAnalogs[6],
+      mbkAnalogs[7],
+      mbkAnalogs[8],
+      mbkAnalogs[9]      
+      );
+      
   }
-  pSerial->sendf("analogs %i %i %i %i\n",mbkAnalogs[0],mbkAnalogs[1],mbkAnalogs[2],mbkAnalogs[3]);
   
 }
 

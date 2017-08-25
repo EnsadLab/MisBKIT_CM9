@@ -11,6 +11,9 @@ extern int blinkMax;
 
 ESP xSerialESP;
 char espReadBuffer[256];
+//int  cmdIndex = 0;
+//char cmdBuffer[128*20];
+
 
 int rcvCount = 0;
 int ipdOverflow = 0;
@@ -46,6 +49,7 @@ void ESP::begin(uint32 bauds){
   str2str("0.0.0.0",ipSTA);  
   xSerial2.strIndex = 0;
   Serial2.begin(bauds);
+  //cmdBuffer[1000]='x';
 }
 
 void ESP::close(){
@@ -88,7 +92,7 @@ char* ESP::readStr(){
   if( ipdLength>0 ){
     rcvTime = t;
     ipdLength = 0;
-    LOGUSB("!readIPD:",ipdBuffer);
+    //LOGUSB("!readIPD:",ipdBuffer);
     rcvCount++;
     return ipdBuffer;
   }
@@ -157,22 +161,17 @@ boolean ESP::startSAP(const char* ssid,const char* psw){
 //SAP soft Access Point
 boolean ESP::startSAP(const char* ssid,const char* psw){
   ready = false;
-  LOGUSB("soft Access Point:",ssid);
   strIndex = 0;
   Serial2.println("ATE0");waitOK();
-  
-  //Serial2.println("AT+CIPCLOSE");waitOK();
+  Serial2.println("AT+CIPCLOSE");waitOK();
   Serial2.println("AT+CWMODE=2");waitOK(); //AP+station
     
-  strPrint(strBuffer,"AT+CWSAP=\"%s\",\"%s\",5,3,4",ssid,psw); //5:channel //3:WPA2_PSK //maxconnexions
+  strPrint(strBuffer,"AT+CWSAP=\"%s\",\"%s\",3,3,4",ssid,psw); //5:channel //3:WPA2_PSK //maxconnexions
   Serial2.println(strBuffer);
-  delay(500);
-  LOGUSB("startSAP:",strBuffer);
   boolean isok = waitOK();
-  LOGUSB("-----SAP:",espReadBuffer);
   if(isok){
     getSapIP();
-    startUDP("192.168.4.255,41235"); //pas de broadcast?
+    startUDP("192.168.4.255,41235"); //broadcast?
     blinkMax = 20;
   }
   else
@@ -325,8 +324,9 @@ void ESP::getClientIP(char* str){ //!!! not safe !!!
   }
   if( changed ){
     str2str(clientIP,str);
-    LOGUSB("Client:",clientIP);
     startUDP(clientIP);
+    LOGUSB("Client:",clientIP);
+    //Serial2.println("AT+CIPDINFO=0");waitOK(); //get ip & port on messages //last message = client
    }
 }
 
@@ -365,7 +365,7 @@ boolean ESP::sendUDP(uint8* buf,int len){
       }
     }     
   }
-  LOGUSB("sendUDP:fail:",espReadBuffer);
+  //LOGUSB("sendUDP:fail:",espReadBuffer);
   //lastError = 100;
   return false;
 }
@@ -486,7 +486,7 @@ char* ESP::getMyIP(){ //station
 */
 
 char* ESP::readLine(){
-  while(available()){
+  while(Serial2.available()){
     uint8 c = read();
     strBuffer[strIndex++]=c;
     if( (strIndex==5)&&(strBegin(strBuffer,"+IPD,")) ){
@@ -499,7 +499,7 @@ char* ESP::readLine(){
     if(c==10){
       strBuffer[strIndex]=0; //crlf compris      
       if(*strBuffer>=' '){ //skip emptyline
-        SerialUSB.print("readLine:");SerialUSB.print(strBuffer);
+        //SerialUSB.print("readLine:");SerialUSB.print(strBuffer);
         if( (strBuffer[0]=='O')&&(strBuffer[1]=='K') ){ //OK
           onOK();
         }        
@@ -552,12 +552,14 @@ boolean ESP::readIPD(){
       ipdBuffer[i++]=read();
   }
   ipdBuffer[i]=0; //en cas de string
-
+  
+  getClientIP(strBuffer);
+  /*
   //TODO TOTHINK
   if( stationState < STATION_HASCLIENT ){
-    getClientIP(strBuffer);
     //Serial2.println("AT+CIPDINFO=0");waitOK(); //dont ip & port on messages
   }
+  */
   
   return i>0;
 }
@@ -619,7 +621,7 @@ void ESP::usbReport(){
   LOGUSB("cmdSend :",cmdSend);
   
   //cipState(); //udp status
-  //getConnectedIPs();
+  getConnectedIPs();
   LOGUSB("nb receptions:",rcvCount);  
   LOGUSB("time recept  :",(int)rcvTime);
   LOGUSB("ready:",(int)ready);
