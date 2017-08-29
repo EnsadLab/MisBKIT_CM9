@@ -16,9 +16,11 @@ DxlEngine engines[NB_ENGINES];
 
 //extern EEPROM CM9_EEPROM;
 extern XSerial* pSerial;
+extern const char* cm9Name;
 
 extern void mbkExecCmd(char* pcmd,float* pParams,int nbParams);
 extern int dxlWrite(int imot,int ireg,int val);
+extern int dxlWrite4bytes(int imot,int addr,int8 b0,int8 b1,int8 b2,int8 b3);
 extern int dxlRead(int imot,int ireg);
 
 #define RELAX_MODE 0
@@ -346,11 +348,15 @@ void DxlEngine::execCmd(char* pcmd,float* pParams,int nbParams){
       
     case 'v':
       if(strBegin(pcmd,"version")){
-        LOGUSB("VERSION:","2.2");
-        //serialSend("version",2,1);
-        pSerial->sendf("version %i %i\n",2,2);
+        LOGUSB("VERSION:","3.7");
+        pSerial->sendf("version %i %i %s\n",3,7,cm9Name);
       }
       break;        
+    case 'n':
+      if(strBegin(pcmd,"name")){
+        LOGUSB("NAME:",cm9Name);
+        pSerial->sendf("name %s\n",cm9Name);
+      }
     default:
       break;
    }
@@ -484,6 +490,12 @@ int DxlEngine::getModel()
     int m = (int)Dxl.readWord(dxlId,0);
     if(m!=0xFFFF){
       model = m;
+      if(m == 12){
+        dxlWrite4bytes(dxlId,P_CW_COMPLIANCE_GAP,0,0,128,128);
+      }
+      else{ //MX28 ...
+        dxlWrite4bytes(dxlId,P_CW_COMPLIANCE_GAP,0,0,4,0);
+      } 
       //oscSend(&xSerialESP,"/mbk/info",",sii","Model:",dxlId,m);
       LOGUSB("model:",m);
     }  
@@ -496,7 +508,7 @@ int DxlEngine::getModel()
   
   minPos = 0;
   if(model==12)maxPos=1023;
-  else maxPos=4096;
+  else maxPos=4095;
    
   //model = 29; //!!!FORCE_MX28
   //model = 12; //!!!FORCE_AX12
@@ -611,7 +623,8 @@ bool DxlEngine::update(unsigned int t)
       
     break;
   }
-
+  //TOTHINK: relaxMode
+  //in case we miss mode 
   if( (cmdGoal>=0)&&(currentMode!=JOINT_MODE)){
     cmdMode = JOINT_MODE;
   }
@@ -619,6 +632,24 @@ bool DxlEngine::update(unsigned int t)
     cmdMode = WHEEL_MODE;    
   }
   
+  if(cmdMode == JOINT_MODE){ //TODO try sync
+    dxlWriteWord(dxlId,P_CCW_ANGLE_LIMIT_L,maxPos); //(GOAL_RANGE-1));
+    dxlWriteWord(dxlId,P_GOAL_SPEED_L,0); //(GOAL_RANGE-1));
+    LOGUSB("cmd JOINT_MODE:",cmdCCW);
+    cmdCW  = -1;
+    cmdCCW = -1;
+    cmdMode = -1;
+    currentMode =JOINT_MODE;
+  }
+  else if(cmdMode == WHEEL_MODE){ //TODO try sync
+    dxlWriteWord(dxlId,P_CCW_ANGLE_LIMIT_L,0);
+    dxlWriteWord(dxlId,P_GOAL_SPEED_L,0);
+    LOGUSB("cmd WHEEL_MODE",cmdCCW);
+    cmdCW  = -1;
+    cmdCCW = -1;
+    cmdMode = -1;
+    currentMode = WHEEL_MODE;
+  }
   
   if(cmdCW>=0){
     dxlWriteWord(dxlId,P_CW_ANGLE_LIMIT_L,cmdCW);
@@ -631,23 +662,7 @@ bool DxlEngine::update(unsigned int t)
   if(cmdTorque>=0){
     dxlWriteWord(dxlId,P_TORQUE_LIMIT_L,cmdTorque);
     cmdTorque = -1;
-  }
-    
-  if(cmdMode == JOINT_MODE){ //TODO try sync
-    dxlWriteWord(dxlId,P_CCW_ANGLE_LIMIT_L,maxPos); //(GOAL_RANGE-1));
-    dxlWriteWord(dxlId,P_GOAL_SPEED_L,0); //(GOAL_RANGE-1));
-    LOGUSB("cmd JOINT_MODE:",cmdGoal);
-    currentMode =JOINT_MODE;
-    cmdMode = -1;
-  }
-  else if(cmdMode == WHEEL_MODE){ //TODO try sync
-    LOGUSB("cmd WHEEL_MODE",cmdSpeed);
-    dxlWriteWord(dxlId,P_CCW_ANGLE_LIMIT_L,0);
-    dxlWriteWord(dxlId,P_GOAL_SPEED_L,0);
-    currentMode = WHEEL_MODE;
-    cmdMode = -1;
-  }
-  
+  }     
   return true;
 }
 
@@ -655,7 +670,6 @@ bool DxlEngine::update(unsigned int t)
 
 void  DxlEngine::onCmd(const char* cmd,float* pParam,int nbp )
 {
-  
   int param0 = (int)pParam[0];
   if( cmd[1]=='I')
   {
@@ -843,7 +857,7 @@ void DxlEngine::setDGoal(float g) //degrees
       else if(cmdGoal>1023)cmdGoal=1023;
     }
     else
-    { //   if(model==  //MX28 MX64 MX106 ... (no multitour) 
+    { //   if(model==  //MX28 MX64 MX106 ... (!no multitour) 
       cmdGoal = (int)(g*2048/160)+2048; //360°
       if(cmdGoal<0)cmdGoal=0;
       else if(cmdGoal>4095)cmdGoal=4095;
@@ -961,7 +975,7 @@ void DxlEngine::setWheelMode()
     //delay(1); 
     //dxlWrite(dxlId,P_CCW_ANGLE_LIMIT_L,0); //GRRR marche pas à tous les coups
     //getModel();
-    //cmdMode = WHEEL_MODE;
+    cmdMode = WHEEL_MODE;
     cmdCCW   = 0;
     cmdSpeed = 0;    
     cmdTorque = 1020;
@@ -993,6 +1007,7 @@ void DxlEngine::setJointMode()
       //LOGUSB("JOINT1:",maxPos);
       if(currPos>=0)
         cmdGoal = currPos;
+      cmdMode = JOINT_MODE;
       cmdSpeed = 0;
       cmdCCW  = maxPos;
       cmdTorque = 1020;
@@ -1021,14 +1036,10 @@ void DxlEngine::setJointMode()
   }
 }
 
-void DxlEngine::setCompliance(int cw,int ccw)
+void DxlEngine::setCompliance(int c0,int c1,int c2,int c3)
 {
-  if(cw>7)cw=7;
-  int cpl = 1<<cw;
-  Dxl.writeByte(dxlId,P_CW_COMPLIANCE_SLOPE,cpl); //CW SLOPE
-  if(ccw>0)
-    cpl = 1<<ccw;
-  Dxl.writeByte(dxlId,P_CCW_COMPLIANCE_SLOPE,cpl); //CCW SLOPE  
+  if(dxlId>0)
+    dxlWrite4bytes(dxlId,P_CW_COMPLIANCE_GAP,c0,c1,c2,c3);
 }
 
 void DxlEngine::changeId(int newId){
@@ -1047,7 +1058,7 @@ void DxlEngine::debug(){
       //pSerial->sendf("pong %i %i %i\n",scanIndex,scanId,m);
   SerialUSB.print("ping     ");SerialUSB.println(p);
 
-  int m = dxlRead( dxlId,P_MODEL);
+  int m = dxlRead( dxlId,P_TORQUE_ENABLE);
   SerialUSB.print("model    ");SerialUSB.println(m);
   
   int f = dxlRead( dxlId,P_MODEL);

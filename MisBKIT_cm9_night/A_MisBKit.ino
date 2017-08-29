@@ -3,13 +3,32 @@ extern Dynamixel Dxl;
 
 extern boolean useOSC;
 
+
+
 unsigned long mbkFrameTime = 0;
+int mbkToggleSensors = 0;
 int mbkTask = 0;
 unsigned long mbkSensorTime = 0;
-int mbkSensorIndex = 0;
+int mbkAnalogIndex = 0;
 int mbkAnalogs[10]={0,0,0,0,0,0,0,0,0,0};
 unsigned long mbkTemperatureTime = 0;
-int mbkTemperatureIndex = 0;    
+int mbkTemperatureIndex = 0;
+int debugCount = 0;
+int debugMax = 0; //65535;
+
+void mbkOnMessage(char* msg){
+  
+    if(*msg == '/'){
+      useOSC = true;
+      DxlEngine::parseOsc(msg);
+    }
+    else{
+        useOSC = false;
+        LOGUSB("parseCmd:",msg);
+        DxlEngine::parseCmd(msg);
+    }
+}
+
 
 void mbkExecCmd(char* pcmd,float* pParams,int nbParams){
   //SerialUSB.println(pcmd);
@@ -153,10 +172,22 @@ void mbkUpdate(){
   //mbkTemperature(t);
 
   if( (t-mbkFrameTime)<50 ){
-    mbkSensors(t);
+    if(mbkAnalogIndex<10){
+      mbkAnalogs[mbkAnalogIndex]=analogRead(mbkAnalogIndex);
+      if(++mbkAnalogIndex==4)  //skip serial2
+        mbkAnalogIndex=6;
+    }
+    //#ifdef USE_ANALOGS
+    //mbkSensors(t);
+    //#endif
     mbkTemperature(t);
     return;
   }
+  
+  if(mbkAnalogIndex<10)
+    debugCount++;
+  mbkAnalogIndex = 0;
+  
   
   mbkFrameTime = t;
   DxlEngine::task(t);
@@ -168,10 +199,18 @@ void mbkUpdate(){
     engines[i].update(t);
   }
 
-  if(useOSC)
-    oscSend(&xSerialESP,"/mbk/pos",",iiii",engines[0].currPos,engines[1].currPos,engines[2].currPos,engines[3].currPos);
-  else
-    DxlEngine::sendAllPos();
+  #ifdef USE_ANALOGS
+    mbkToggleSensors ^= 1;
+  #endif
+  if(mbkToggleSensors==0){
+    if(useOSC)
+      oscSend(&xSerialESP,"/mbk/pos",",iiii",engines[0].currPos,engines[1].currPos,engines[2].currPos,engines[3].currPos);
+    else
+      DxlEngine::sendAllPos();
+  }
+  else{
+    mbkSensors(t);
+  }
     
   //mbkSensors(t);
     
@@ -192,8 +231,10 @@ void mbkTemperature(unsigned long t){
 }
 
 void mbkSensors(unsigned long t){
-  if( (t-mbkSensorTime)>100 ){
+  //if( (t-mbkSensorTime)>100 )
+  {
     mbkSensorTime = t;
+    /*
     mbkAnalogs[0]=analogRead(0);
     mbkAnalogs[1]=analogRead(1);
     mbkAnalogs[2]=analogRead(2);
@@ -202,19 +243,15 @@ void mbkSensors(unsigned long t){
     mbkAnalogs[7]=analogRead(7);
     mbkAnalogs[8]=analogRead(8);
     mbkAnalogs[9]=analogRead(9);
-    /*
-    for(int i=0;i<10;i++){
-      mbkAnalogs[i]=analogRead(i);
-    }
     */
     
-    pSerial->sendf("analogs %i %i %i %i %i %i %i %i %i\n",
+    pSerial->sendf("analogs %i %i %i %i %i %i %i %i %i %i\n",
       mbkAnalogs[0],
       mbkAnalogs[1],
       mbkAnalogs[2],
       mbkAnalogs[3],
-      mbkAnalogs[4],
-      mbkAnalogs[5],
+      0, //serial2
+      0, //serial2
       mbkAnalogs[6],
       mbkAnalogs[7],
       mbkAnalogs[8],

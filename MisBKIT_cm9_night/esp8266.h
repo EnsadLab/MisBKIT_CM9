@@ -45,7 +45,7 @@ class ESP : public XSerial {
   //boolean    send(int len,char* buf);
   void cipState();
   
-  boolean readIPD();
+  void readIPD();
   void onOK();
   void onWIFI();
   

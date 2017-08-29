@@ -97,11 +97,11 @@ void dxlWrite(int id,int addr,int value)
   //if( (value>0)&&(addr==P_CCW_ANGLE_LIMIT_L) )
   //  value = 4095; //(GOAL_RANGE-1); 
   
-  if(addr == P_TORQUE_ENABLE)
-    value = 1;
+  //if(addr == P_TORQUE_ENABLE)
+  //  value = 1;
     
-  if(addr == P_TORQUE_LIMIT_L )
-    return;  
+  //if(addr == P_TORQUE_LIMIT_L )
+  //  return;  
   
   //if(ireg<=4)
   //  return;
@@ -122,6 +122,35 @@ void dxlWrite(int id,int addr,int value)
     Dxl.txPacket(id,INST_WRITE,3);
   }
 }
+
+void dxlWrite2words(int id,int addr,word w0,word w1)
+{
+  if( (addr<=4)||addr>48)
+    return;
+    
+  Dxl.setTxPacketLength(0);  
+  Dxl.pushByte(addr);
+  Dxl.pushByte(w0 & 0xFF);
+  Dxl.pushByte(w0 >> 8);  
+  Dxl.pushByte(w1 & 0xFF);  
+  Dxl.pushByte(w1 >> 8);  
+  Dxl.txPacket(id,INST_WRITE,5);
+}
+
+void dxlWrite4bytes(int id,int addr,int8 b0,int8 b1,int8 b2,int8 b3)
+{
+  if( (addr<=4)||addr>48)
+    return;
+    
+  Dxl.setTxPacketLength(0);  
+  Dxl.pushByte(addr);
+  Dxl.pushByte(b0);
+  Dxl.pushByte(b1);  
+  Dxl.pushByte(b2);  
+  Dxl.pushByte(b3);  
+  Dxl.txPacket(id,INST_WRITE,5);
+}
+
 
 //sync :
 //FF FF FE len 0x83(syncwrite) startaddr len

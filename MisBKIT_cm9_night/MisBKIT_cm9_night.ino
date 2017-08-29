@@ -8,7 +8,9 @@
 #include "osc.h"
 //#include "EEPROM.h"
 
-const char* cm9Name="CM9_Didier";     //Soft Access Point ssid
+#define USE_ANALOGS 
+
+const char* cm9Name="CM9_Didier";   //Soft Access Point ssid //TOTHINK changeable
 const char* cm9Pswd  ="ensad-mbk";  //password
 
 const char* routerSSID ="MisBKit00";  //Router ssid
@@ -39,6 +41,10 @@ boolean fatalError = false;
 //====================================================
 void setup() 
 {
+  pinMode(0, INPUT_ANALOG);
+  pinMode(1, INPUT_ANALOG);
+  pinMode(2, INPUT_ANALOG);
+  pinMode(3, INPUT_ANALOG);
   pinMode(6, INPUT_ANALOG);
   pinMode(7, INPUT_ANALOG);
   pinMode(8, INPUT_ANALOG);
@@ -126,7 +132,8 @@ void loop()
   }//usb available
   
   char* rcv = xSerialESP.readStr();
-  while(rcv!=NULL){    
+  while(rcv!=NULL){
+    /*    
     if(*rcv == '/'){
       useOSC = true;
       DxlEngine::parseOsc(rcv);
@@ -136,6 +143,7 @@ void loop()
         //LOGUSB("parseCmd:",rcv);
         DxlEngine::parseCmd(rcv);
       }
+    */
     rcv = xSerialESP.readStr();
   }
   

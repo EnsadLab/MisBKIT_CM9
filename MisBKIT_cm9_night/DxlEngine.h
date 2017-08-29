@@ -112,7 +112,7 @@ class DxlEngine
   void setWheelMode();
   void setJointMode();  
   void setRelaxMode();  
-  void setCompliance(int cw,int ccw = -1);
+  void setCompliance(int c0,int c1,int c2,int c3);
   void setDxlValue(int addr,int val);
   void changeId(int newId);
   int  pushGoal();
