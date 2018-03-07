@@ -1,5 +1,11 @@
 # MisBKIT_CM9
 
-MisBKIT_cm9_night  : version courante ... risques et perils ...
+Please use MisBKIT_CM9 folder
 
+changes:
+at setup:
+ - led blinks fast
+ - try to connect to ssid "MisBKit00"
+ - if fail then create access point "CM9_xx"
+ 
 
