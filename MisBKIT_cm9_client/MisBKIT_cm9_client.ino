@@ -6,7 +6,6 @@
 #include "XSerial.h"
 #include "esp8266.h"
 #include "osc.h"
-//#include "EEPROM.h"
 
 #define USE_ANALOGS 
 
@@ -15,21 +14,20 @@ const char* cm9Pswd  ="ensad-mbk05";  //password
 
 const char* routerSSID ="MisBKit00";  //Router ssid
 const char* routerPswd ="ensadmbk00"; //password
-const char* staticIP   ="10.0.0.205";
+const char* staticIP   ="10.0.0.205"; // 200 + cm9Num 
 
-//const char* routerSSID ="MBA-Didier";  //Router ssid
-//const char* routerPswd ="AZERTYUIOPQSD"; //password
-
-//const char* remoteIP = "192.168.4.255";
 const int localPort  = 41234;
 const int remotePort = 41235; 
 
 boolean usbEnabled = false;
 boolean useOSC = false;
 
+HardwareTimer ledTimer(1);
+
 #define BUTTON_PIN 23 //25
 //--------------------------------
-//EEPROM CM9_EEPROM;
+//#include "EEPROM.h"
+//EEPROM eeprom;
 //--------------------------------
 //PING : PARALLAX utrasound distance sensor  TODO test attach/detach interrupts
 //--------------------------------
@@ -45,6 +43,15 @@ boolean fatalError = false;
 //====================================================
 void setup() 
 {
+  ledTimer.pause();
+  pinMode(BOARD_LED_PIN, OUTPUT);
+  ledTimer.setPeriod(50000); // in microseconds
+  ledTimer.setMode(TIMER_CH1, TIMER_OUTPUT_COMPARE);
+  ledTimer.setCompare(TIMER_CH1, 1);
+  ledTimer.attachInterrupt(TIMER_CH1, toggleLed);
+  ledTimer.refresh();
+  ledTimer.resume();
+  
   pinMode(0, INPUT_ANALOG);
   pinMode(1, INPUT_ANALOG);
   pinMode(2, INPUT_ANALOG);
@@ -54,11 +61,9 @@ void setup()
   pinMode(8, INPUT_ANALOG);
   pinMode(9, INPUT_ANALOG);
 
-  pinMode(BOARD_LED_PIN, OUTPUT);
   pinMode(BUTTON_PIN, INPUT_PULLDOWN);
   digitalWrite(BOARD_LED_PIN, LOW);    //setup: led on
 
-  //CM9_EEPROM.begin();
   //xSerialUSB.begin(115200); //INUTILE !!! ?
       
   delay(1000);
@@ -72,15 +77,26 @@ void setup()
   }
 
   //xSerialESP.restart();
-  xSerialESP.startSAP(cm9Name,cm9Pswd);
+  if( !xSerialESP.connectTo(routerSSID,routerPswd,staticIP) )
+    xSerialESP.startSAP(cm9Name,cm9Pswd);
     
   delay(500);
   DxlEngine::initialize();
   delay(500);
 
   loopTime = millis();
+  
+  ledTimer.pause();
+
   digitalWrite(BOARD_LED_PIN, HIGH);//led off
 
+  //eeprom.begin();
+  //saveRouter();
+
+}
+
+void toggleLed(void){
+  toggleLED();
 }
 
 void blinkFatal(){
@@ -135,6 +151,12 @@ void loop()
            break; 
           case 'w':
             xSerialESP.scanWifi();
+            break;
+          /*
+          case 'E': saveRouter((char*)routerSSID);break;  
+          case 'e': readRouter();break;
+          case 'R': setRouter(++str);break;
+          */
         }
       }
     }//str
@@ -173,24 +195,64 @@ void loop()
   
   mbkUpdate();  
 }
+
 /*
-float angle = 0;
-void testSinus(){
-  float s = sin( angle );
-  angle += 0.05;
-  int pos = (s*511)+512; 
-  engines[0].setGoal(pos);  
+void setRouter(char* pstr){
+  if(pstr==NULL)
+    return;
+  //remove crlf
+  char* crlf = strchr(pstr,(char)10);
+  if(crlf!=NULL)*crlf=0;
+  crlf = strchr(pstr,(char)13);
+  if(crlf!=NULL)*crlf=0;
+
+  LOGUSB("setRouter:",pstr);
+  char* ssid = strchr(pstr,':');
+  if(ssid!=NULL){
+    ssid++;
+    char* psw  = strchr(ssid,':');
+    if(psw!=NULL){
+      *psw = 0;
+      psw++;
+      LOGUSB(" ssid:",ssid);
+      LOGUSB("  psw:",psw);      
+    }
+  }
+  
+  
+  
 }
 
-float sinOSC(){
-  float s = sin( angle );
-  angle += 0.05;
-  //oscSend(&xSerialESP,"/dxl/1/S",s);
-  oscSend(&xSerialESP,"/dxl/1/S",",f",s);
-  return s;
+
+void saveRouter(char* pstr){
+  //char* pstr = (char*)routerSSID;
+  int addr = 0;
+  while(pstr[addr]!=0){
+    eeprom.write(addr,pstr[addr]);
+    addr++;
+  }    
+  eeprom.write(addr,0);
+  LOGUSB("saved:",pstr);
+}
+
+void readRouter(){
+  char str[20];
+  for(int i=0;i<16;i++){
+    str[i]='a'+i;
+  }
+  str[16]=0;  
+  int addr = 0;
+  while(addr<16){
+    char c = eeprom.read(addr);
+    str[addr++]=c;
+    if(c==0)
+      break;
+  }
+  LOGUSB("eeprom:",str);
+
+  
 }
 */
-
 
 
  

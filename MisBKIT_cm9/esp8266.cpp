@@ -3,8 +3,8 @@
 #include "osc.h"
 
 extern const char* name;
-extern const char* routerSSID;
-extern const char* routerPswd;
+//extern const char* routerSSID;
+//extern const char* routerPswd;
 extern const int localPort;  //41234;
 extern const int remotePort; //41235; 
 extern int blinkMax;
@@ -130,6 +130,7 @@ char* ESP::readStr(){
 //=============================================================
 
 void ESP::restart(){
+  /*
   ready = false;
   stationState = STATION_DISCONNECTED;
   str2str("0.0.0.0",ipSTA);  
@@ -144,6 +145,7 @@ void ESP::restart(){
   helloTime = 0; //
   rcvTime = 0;
   LOGUSB("restarted"," !");
+  */
 };
 
 
@@ -168,8 +170,8 @@ boolean ESP::startSAP(const char* ssid,const char* psw){
   Serial2.println("ATE0");waitOK();
   LOGUSB("CIPCLOSE:","");
   Serial2.println("AT+CIPCLOSE");waitOK();
-  LOGUSB("CWMODE:","2");
-  Serial2.println("AT+CWMODE=2");waitOK(); //AP+station
+  LOGUSB("CWMODE:","3");
+  Serial2.println("AT+CWMODE=3");waitOK(); //1:station , 2:softAP , 3:AP+station
 
   LOGUSB("CWSAP:","2");    
   strPrint(strBuffer,"AT+CWSAP=\"%s\",\"%s\",3,3,4",ssid,psw); //5:channel //3:WPA2_PSK //maxconnexions
@@ -190,7 +192,7 @@ boolean ESP::startSAP(const char* ssid,const char* psw){
 
 
 //STATION
-void ESP::connectTo(const char* ssid,const char* psw){
+boolean ESP::connectTo(const char* ssid,const char* psw,const char* stip){
   ready = false;
   blinkMax = 1;
   LOGUSB("[station:...",ssid);
@@ -203,34 +205,62 @@ void ESP::connectTo(const char* ssid,const char* psw){
   Serial2.println("AT+CWMODE=1");waitOK(); //station
     
   strPrint(strBuffer,"AT+CWJAP=\"%s\",\"%s\"",ssid,psw);
-  Serial2.println(strBuffer);
-  stationState = STATION_WAIT;
   LOGUSB(strBuffer,"WAIT...");  
-
-  while( waitString()>0 ){ //ATTENTION ----->looooong timeout -----> onWIFI
-    //SerialUSB.print("connectTo:");SerialUSB.println(espReadBuffer); //... WIFI CONNECTED ... WIFI GOT IP ... OK ... FAIL ...
-    LOGUSB(" CWJAP:",espReadBuffer); //... WIFI CONNECTED ... WIFI GOT IP ... OK ... FAIL ...
-    //if(strBegin(espReadBuffer,"WIFI")){ onWIFI(); }
-    if(strBegin(espReadBuffer,"OK"))break;
-    if(strBegin(espReadBuffer,"ERROR"))break;
-    if(strBegin(espReadBuffer,"FAIL"))break;
+  Serial2.println(strBuffer);
+  stationState = STATION_WAIT;  
+  boolean wait = true;
+  boolean isok = false;
+  while(wait){
+    while( waitString()>0 ){ //ATTENTION ----->looooong timeout -----> onWIFI
+      //SerialUSB.print("connectTo:");SerialUSB.println(espReadBuffer); //... WIFI CONNECTED ... WIFI GOT IP ... OK ... FAIL ...
+      LOGUSB(" CWJAP:",espReadBuffer); //... WIFI CONNECTED ... WIFI GOT IP ... OK ... FAIL ...
+      //if(strBegin(espReadBuffer,"WIFI")){ onWIFI(); }
+      if(strBegin(espReadBuffer,"OK")){isok=true;wait=false;break;}
+      if(strBegin(espReadBuffer,"ERROR")){wait=false;break;}
+      if(strBegin(espReadBuffer,"FAIL")){wait=false;break;}
+    }
   }
-  /*  
-  if( stationState = STATION_GOT_IP ){
+  
+  if(isok){
+      if( stip != NULL ){
+        strPrint(strBuffer,"AT+CIPSTA=\"%s\"",stip);
+        SerialUSB.println(strBuffer);
+        Serial2.println(strBuffer);
+        while( waitString()>0 ){
+          SerialUSB.println(espReadBuffer);
+          if(strBegin(espReadBuffer,"OK")){break;}
+        }
+      }
       getStaIP();
-      //TODO check ip      
-      stationState=STATION_BROADCAST;
-      SerialUSB.println("STATION_BROADCAST");      
+      buildBroadcastAT(ipSTA,41235);
+      //strPrint(clientIP,"%s,%s",stip,"412345");
+      //SerialUSB.println(strBuffer);
+      //startUDP(clientIP);
+      
+      /*  
+      if( stationState = STATION_GOT_IP ){
+          getStaIP();
+          //TODO check ip      
+          stationState=STATION_BROADCAST;
+          SerialUSB.println("STATION_BROADCAST");      
+      }
+      else{
+          stationState = STATION_DISCONNECTED;
+          SerialUSB.println("STATION_DISCONNECTED");
+      }
+      */
+    LOGUSB("station ]","...");
+          
   }
-  else{
-      stationState = STATION_DISCONNECTED;
-      SerialUSB.println("STATION_DISCONNECTED");
-  }
-  */
-  LOGUSB("station ]","...");
+  
   rcvTime = millis(); //reset timeout    
   //esp send "WIFI DISCONNECT" if router turns off !!!
   // ... et se reconnecte seul lorsque le routeur reviens "WIFI GOT IP"
+  
+  
+  ready = isok;
+  blinkMax = 20;
+  return isok;
 }
 
 
@@ -271,8 +301,8 @@ int ESP::waitString(){
   return 0;
 }
 
-void ESP::buildBroadcastAT(){ //TODO with mask ?
-  char* sce  = ipSTA;
+void ESP::buildBroadcastAT(const char* ip,int port){ //TODO with mask ?
+  char* sce  = (char*)ip;
   char* dest = clientIP;
   int i=0;
   char c;
@@ -280,7 +310,9 @@ void ESP::buildBroadcastAT(){ //TODO with mask ?
   do{ c=sce[i];dest[i]=c;i++;}while( (c!='.')&&(c!=0) ); //skip
   do{ c=sce[i];dest[i]=c;i++;}while( (c!='.')&&(c!=0) ); //skip
   dest[i++]='2';dest[i++]='5';dest[i++]='5'; //255
-  dest[i++]=0;
+  dest[i++]=',';
+  itoa(port,&dest[i],10);
+  //dest[i++]=0;
   LOGUSB("startBroadcast:",clientIP);
   startUDP(clientIP);
 }
@@ -288,8 +320,9 @@ void ESP::buildBroadcastAT(){ //TODO with mask ?
 
 void ESP::startUDP(const char* ip){ //ipport = "xxx.xxx.xxx.xxx,nnnn" //TODO port
 
-  LOGUSB("startudp:CIPCLOSE","...");
+  LOGUSB("startudp:",ip); //CIPCLOSE","...");
   Serial2.println("AT+CIPCLOSE");waitOK(); //close all connexions
+  LOGUSB(" closed:",ip); //CIPCLOSE","...");
 
   //strPrint((char*)strBuffer,"AT+CIPSTART=\"UDP\",\"%s\",%i,%i,2",ip,portOut,portIn);//0:destNotChange,1:changeOnce,2:changeAllowed
   char* s  = (char*)ip;
@@ -310,8 +343,9 @@ void ESP::startUDP(const char* ip){ //ipport = "xxx.xxx.xxx.xxx,nnnn" //TODO por
   LOGUSB("cipstart:",strBuffer);
   LOGUSB("cmdSend :",cmdSend);
     
-  LOGUSB("startUDP:",strBuffer);
+  LOGUSB("startUDP2:",strBuffer);
   Serial2.println((char*)strBuffer);waitOK(); //start UDP connexion TODO ERROR
+  LOGUSB("startUDP3:",strBuffer);
   Serial2.println("AT+CIPDINFO=1");waitOK(); //get ip & port on messages //last message = client
   LOGUSB("startUDP:","---done---");
   ready = true;
@@ -340,7 +374,7 @@ void ESP::getClientIP(char* str){ //!!! not safe !!!
 
 
 void ESP::sendUDP(const char* str){
-    //SerialUSB.print("send");SerialUSB.print(str);
+    SerialUSB.print("send:");SerialUSB.print(str);
     if(ready){
       int len=0;
       while(str[len]!=0)len++;
@@ -503,7 +537,7 @@ char* ESP::readLine(){
       readIPD();
       strBuffer[0]=0;
       strIndex=0;
-      //SerialUSB.println("!readline IPD");
+      SerialUSB.println("!readline IPD");
       return NULL; //TOTHINK ipd mbkOnMessage
     }
     else if(c==10){
@@ -587,7 +621,8 @@ void ESP::onOK(){
   whenOK = ONOK_NOTHING;
   switch(w){
     case ONOK_GETIP: //Station ip
-      LOGUSB("onOK:","STATION_GOT_IP");      
+      LOGUSB("onOK:","STATION_GOT_IP");
+      /*     
       stationState = STATION_GOT_IP;
       
       getStaIP();
@@ -596,6 +631,7 @@ void ESP::onOK(){
       stationState=STATION_BROADCAST;
       LOGUSB("onOK:","STATION_BROADCAST");      
       blinkMax = 20; //normal blink
+      */
       /*
       buildBroadcastIP(ipSTA);
       startUDP(remoteIP,portOut,portIn);
@@ -697,6 +733,30 @@ int ESP::getConnectedIPs(){
   }
   SerialUSB.print("nb connecions:");SerialUSB.println(nbConnected);
   return nbConnected;
+}
+
+void ESP::scanWifi(){
+  SerialUSB.println("scanWifi");
+  //Serial2.println("AT+CWMODE=1");waitOK(); //1:station , 2:softAP , 3:AP+station
+
+  //Serial2.println("AT+CWLAPOPT= 0,6");waitOK(); ERROR
+
+  Serial2.println("AT+CWLAP");
+  boolean wait = true;
+  while(wait){
+    while( waitString()>0 ){
+      //SerialUSB.print(espReadBuffer);        
+      if(strBegin(espReadBuffer,"OK") ){wait=false;break;}
+      if(strBegin(espReadBuffer,"ERROR") ){wait=false;break;}
+      if(strBegin(espReadBuffer,"+CWLAP")){
+        char ssid[64];
+        char* comma = getQuotedString(espReadBuffer,ssid)+1;
+        int strength = atoi(comma);
+        SerialUSB.print(ssid);SerialUSB.print(":");SerialUSB.println(strength);  
+      }
+    }
+  }  
+  SerialUSB.println("scanWifi done");
 }
 
 

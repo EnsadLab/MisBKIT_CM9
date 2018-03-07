@@ -3,8 +3,8 @@
 #include "osc.h"
 
 extern const char* name;
-extern const char* routerSSID;
-extern const char* routerPswd;
+//extern const char* routerSSID;
+//extern const char* routerPswd;
 extern const int localPort;  //41234;
 extern const int remotePort; //41235; 
 extern int blinkMax;
@@ -192,7 +192,7 @@ boolean ESP::startSAP(const char* ssid,const char* psw){
 
 
 //STATION
-void ESP::connectTo(const char* ssid,const char* psw,const char* stip){
+boolean ESP::connectTo(const char* ssid,const char* psw,const char* stip){
   ready = false;
   blinkMax = 1;
   LOGUSB("[station:...",ssid);
@@ -236,26 +236,31 @@ void ESP::connectTo(const char* ssid,const char* psw,const char* stip){
       //strPrint(clientIP,"%s,%s",stip,"412345");
       //SerialUSB.println(strBuffer);
       //startUDP(clientIP);
+      
+      /*  
+      if( stationState = STATION_GOT_IP ){
+          getStaIP();
+          //TODO check ip      
+          stationState=STATION_BROADCAST;
+          SerialUSB.println("STATION_BROADCAST");      
+      }
+      else{
+          stationState = STATION_DISCONNECTED;
+          SerialUSB.println("STATION_DISCONNECTED");
+      }
+      */
+    LOGUSB("station ]","...");
+          
   }
   
-  /*  
-  if( stationState = STATION_GOT_IP ){
-      getStaIP();
-      //TODO check ip      
-      stationState=STATION_BROADCAST;
-      SerialUSB.println("STATION_BROADCAST");      
-  }
-  else{
-      stationState = STATION_DISCONNECTED;
-      SerialUSB.println("STATION_DISCONNECTED");
-  }
-  */
-  LOGUSB("station ]","...");
-  //rcvTime = millis(); //reset timeout    
+  rcvTime = millis(); //reset timeout    
   //esp send "WIFI DISCONNECT" if router turns off !!!
   // ... et se reconnecte seul lorsque le routeur reviens "WIFI GOT IP"
-  ready = true;
+  
+  
+  ready = isok;
   blinkMax = 20;
+  return isok;
 }
 
 

@@ -29,7 +29,7 @@ class ESP : public XSerial {
 
   //-------------------------------------------------
   boolean startSAP(const char* ssid,const char* psw);
-  void connectTo(const char* ssid,const char* psw);
+  boolean connectTo(const char* ssid,const char* psw,const char* stip);
   
   void update( unsigned long t );
  
@@ -37,7 +37,7 @@ class ESP : public XSerial {
   //char* getIP();
   //char* getMyIP();
   int   getConnectedIPs();
-  void buildBroadcastAT();
+  void buildBroadcastAT(const char* ip,int port);
   //boolean startUDP(const char* ip,int in,int out);
   void startUDP(const char* ipport);
   void sendUDP(const char* str);
@@ -60,6 +60,7 @@ class ESP : public XSerial {
   void getClientIP(char* str);
   void usbReport();
   void restart();
+  void scanWifi();
 
   unsigned long rcvTime;  
   int portIn;

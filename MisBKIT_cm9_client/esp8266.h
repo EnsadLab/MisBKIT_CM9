@@ -29,7 +29,7 @@ class ESP : public XSerial {
 
   //-------------------------------------------------
   boolean startSAP(const char* ssid,const char* psw);
-  void connectTo(const char* ssid,const char* psw,const char* stip);
+  boolean connectTo(const char* ssid,const char* psw,const char* stip);
   
   void update( unsigned long t );
  
