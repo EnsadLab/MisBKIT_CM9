@@ -7,7 +7,7 @@
 #include "esp8266.h"
 #include "osc.h"
 
-#define USE_ANALOGS 
+#define USE_ANALOGS
 
 const char* cm9Name="CM9_05";   //Soft Access Point ssid //TOTHINK changeable
 const char* cm9Pswd  ="ensad-mbk05";  //password
@@ -196,63 +196,6 @@ void loop()
   mbkUpdate();  
 }
 
-/*
-void setRouter(char* pstr){
-  if(pstr==NULL)
-    return;
-  //remove crlf
-  char* crlf = strchr(pstr,(char)10);
-  if(crlf!=NULL)*crlf=0;
-  crlf = strchr(pstr,(char)13);
-  if(crlf!=NULL)*crlf=0;
-
-  LOGUSB("setRouter:",pstr);
-  char* ssid = strchr(pstr,':');
-  if(ssid!=NULL){
-    ssid++;
-    char* psw  = strchr(ssid,':');
-    if(psw!=NULL){
-      *psw = 0;
-      psw++;
-      LOGUSB(" ssid:",ssid);
-      LOGUSB("  psw:",psw);      
-    }
-  }
-  
-  
-  
-}
-
-
-void saveRouter(char* pstr){
-  //char* pstr = (char*)routerSSID;
-  int addr = 0;
-  while(pstr[addr]!=0){
-    eeprom.write(addr,pstr[addr]);
-    addr++;
-  }    
-  eeprom.write(addr,0);
-  LOGUSB("saved:",pstr);
-}
-
-void readRouter(){
-  char str[20];
-  for(int i=0;i<16;i++){
-    str[i]='a'+i;
-  }
-  str[16]=0;  
-  int addr = 0;
-  while(addr<16){
-    char c = eeprom.read(addr);
-    str[addr++]=c;
-    if(c==0)
-      break;
-  }
-  LOGUSB("eeprom:",str);
-
-  
-}
-*/
 
 
  
