@@ -1,8 +1,9 @@
-#include "DxlEngine.h"
+
 #include "DxlMotor.h"
 #include "utils.h"
 
 #define NB_MOTORS 6
+
 
 extern Dynamixel Dxl;
 
@@ -22,8 +23,8 @@ unsigned long mbkFrameTime = 0;
 //int mbkScanStep = -1;
 //unsigned long mbkSensorTime = 0;
 //int mbkAnalogs[10]={0,0,0,0,0,0,0,0,0,0};
-unsigned long mbkTemperatureTime = 0;
-int mbkTemperatureIndex = 0;
+//unsigned long mbkTemperatureTime = 0;
+//int mbkTemperatureIndex = 0;
 int debugCount = 0;
 int debugMax = 0; //65535;
 
@@ -359,3 +360,5 @@ void mbkSlowScan(){
     mbkScanStep=-1; //stop
 }
 */
+
+

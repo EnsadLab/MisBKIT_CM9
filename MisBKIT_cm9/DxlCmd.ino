@@ -1,4 +1,5 @@
-#define P_ID 3
+
+#include "DxlDefinitions.h"
 
 extern Dynamixel Dxl;
 Dynamixel Dxl(1); //Dynamixel on Serial1(USART1)
@@ -47,6 +48,9 @@ byte dxlAdrr[50]= //1:byte 2:word
   1,   //47 Lock EEPROM
   2,0  //48 Punch 
 };
+
+unsigned long dxlTemperatureTime = 0;
+int dxlTemperatureIndex = 0;
 
 //uint8 msgWriteByte[256];
 //char msgReadByte[256];
@@ -186,6 +190,7 @@ void dxlWrite(int id,int addr,int value)
   }
 }
 
+
 void dxlWrite2words(int id,int addr,word w0,word w1)
 {
   if( (addr<=4)||addr>48)
@@ -213,7 +218,6 @@ void dxlWrite4bytes(int id,int addr,int8 b0,int8 b1,int8 b2,int8 b3)
   Dxl.pushByte(b3);  
   Dxl.txPacket(id,INST_WRITE,5);
 }
-
 
 //sync :
 //FF FF FE len 0x83(syncwrite) startaddr len
@@ -247,6 +251,7 @@ int dxlRead(int dxlid,int ireg){
   return -1;
 }
 
+
 void dxlSyncGoalSpeeds(){
   Dxl.setTxPacketLength(0);
   Dxl.pushByte(P_GOAL_POSITION_L);
@@ -270,6 +275,7 @@ void dxlSyncGoalSpeeds(){
   else
     Dxl.setTxPacketLength(0);  
 }
+
 
 void dxlSyncGoals(){  
   Dxl.setTxPacketLength(0);
@@ -313,7 +319,6 @@ void dxlSyncSpeeds(){
     Dxl.setTxPacketLength(0);  
 }
 
-
 void dxlSendAllPos(){
   xSerialESP.print("dxlpos");
   for(int i=0;i<NB_MOTORS;i++){
@@ -322,16 +327,17 @@ void dxlSendAllPos(){
   xSerialESP.print("\n");
 }
 
+
 void dxlSendTemperature(unsigned long t){
-  if( (t-mbkTemperatureTime)>2333 ){ //
-    mbkTemperatureTime = t;
-    if(++mbkTemperatureIndex>=NB_MOTORS)
-      mbkTemperatureIndex=0;
-    int tp = motors[mbkTemperatureIndex].readTemperature();
-    if(tp>0)
-      xSerialESP.sendf("dxlTemp %i %i\n",mbkTemperatureIndex,tp);           
+  if( (t-dxlTemperatureTime)>2333 ){ 
+    dxlTemperatureTime = t;
+    if(++dxlTemperatureIndex>=NB_MOTORS)
+      dxlTemperatureIndex=0;
+    int tp = motors[dxlTemperatureIndex].readTemperature();
+    if(tp>0){
+      xSerialESP.sendf("dxlTemp %i %i\n",dxlTemperatureIndex,tp);           
       //LOGUSB("temperaturev:",tp);
-    }    
+    }
   }
 }
 

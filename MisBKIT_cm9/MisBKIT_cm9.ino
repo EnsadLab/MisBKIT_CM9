@@ -2,9 +2,9 @@
 #include "libpandora_types.h"
 #include "Arduino-compatibles.h"
 
-#include "DxlEngine.h"
 #include "XSerial.h"
 #include "esp8266.h"
+#include "DxlMotor.h"
 //#include "osc.h"
 
 const int   cm9Num = 9;                //TOTHINK changeable --> EEPROM
@@ -15,12 +15,11 @@ char cm9Name[8] = "CM9_00";            //modifié par cm9Num
 char cm9Pswd[16] = "ensad-mbk00";      //modifié par cm9Num
 const char* routerSSID ="MisBKit00";   //Router ssid  //TOTHINK changeable --> EEPROM
 const char* routerPswd ="ensadmbk00";  //password
-//const char* staticIP   ="10.0.0.209"; // 200 + cm9Num 
 
 const int localPort  = 41234;
 const int remotePort = 41235; 
 
-boolean usbEnabled = true;
+boolean usbEnabled = false;
 boolean useOSC = false;
 
 HardwareTimer ledTimer(1);
@@ -77,7 +76,6 @@ void setup()
   }
 
   //xSerialUSB.begin(115200); //INUTILE !!! ?      
-  //delay(1000);
   xSerialESP.begin(115200);
   pSerial = &xSerialESP;
 
@@ -89,7 +87,6 @@ void setup()
   ledTimer.pause();
   digitalWrite(BOARD_LED_PIN, LOW);//led on
     
-  //DxlEngine::initialize();
   dxlInitialize();
 
   xSerialESP.startTCPserver(localPort);
@@ -135,19 +132,8 @@ void loop()
 
   usbComnandLine();
 
-  
-  
-  
-  /*
-  if(rcvCount>0){
-    unsigned int t = millis();
-    unsigned int dt = t-cmdTime;
-    cmdTime = t;
-    sendMessage();
-  }
-  */
-  
 }
+
 
 void usbComnandLine(){
   while(xSerialUSB.available()){
@@ -179,15 +165,10 @@ void usbComnandLine(){
             xSerialESP.startUDP("192.168.4.7,41235");
             break;
           case 't':
-            /*
             //oscSend(&xSerialESP,"/mbk/pos",",i",engines[0].currPos);
             //oscSend(&xSerialESP,"/mbk/pos",",i",123);
             //engines[0].update(0);
-            SerialUSB.print("pos:");SerialUSB.println(engines[0].currPos);
-            #ifdef USE_OSC
-            oscSend(&xSerialESP,"/mbk/pos",",ii",engines[0].currPos,engines[1].currPos);
-            #endif
-            */
+            //SerialUSB.print("pos:");SerialUSB.println(engines[0].currPos);
             xSerialESP.startTCPserver(1337);
             break;
           case 'o':
@@ -198,11 +179,9 @@ void usbComnandLine(){
           case 'w':
             xSerialESP.scanWifi();
             break;
-          /*
-          case 'E': saveRouter((char*)routerSSID);break;  
-          case 'e': readRouter();break;
-          case 'R': setRouter(++str);break;
-          */
+          //case 'E': saveRouter((char*)routerSSID);break;  
+          //case 'e': readRouter();break;
+          //case 'R': setRouter(++str);break;
         }
       }
     }//str
@@ -264,7 +243,6 @@ void readRouter(){
       break;
   }
   LOGUSB("eeprom:",str);
-
   
 }
 */

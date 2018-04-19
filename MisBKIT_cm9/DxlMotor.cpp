@@ -1,5 +1,5 @@
+#include "DxlDefinitions.h"
 #include "DxlMotor.h"
-#include "DxlEngine.h"
 #include "utils.h"
 
 extern Dynamixel Dxl;
