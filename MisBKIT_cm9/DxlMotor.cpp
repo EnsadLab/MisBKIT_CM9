@@ -182,8 +182,11 @@ void DxlMotor::stop(){
 
 int DxlMotor::readTemperature()
 {
-  if(dxlID>0)
-    return Dxl.readByte(dxlID,P_TEMPERATURE);
+  if(dxlID>0){
+    int tp = Dxl.readByte(dxlID,P_TEMPERATURE);
+    if(tp<255)
+      return tp;
+  }
   return -1;
 }
 

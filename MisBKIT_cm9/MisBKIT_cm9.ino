@@ -7,7 +7,7 @@
 #include "DxlMotor.h"
 //#include "osc.h"
 
-const int   cm9Num = 9;                //TOTHINK changeable --> EEPROM
+const int   cm9Num = 4;                //TOTHINK changeable --> EEPROM
 
 const int version[2] = {5,0};
 
