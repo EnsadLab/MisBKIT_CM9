@@ -3,37 +3,11 @@
 #include "Arduino-compatibles.h"
 #include "stdarg.h"
 
-extern boolean usbEnabled;
-
-char tmpstr[64]; //unsafe
-
-
 int strlen(const char* str){
   int l = 0;
-  while(str[l]!=0)l++;
+  while(str[l]!=0)
+    l++;
   return l;
-}
-
-char* strchr(char* sce,char c){
-  while(*sce!=0){
-    if(*sce==c)
-      return sce;
-    sce++;
-  }
-  return NULL;
-}
-
-char* skipLine(char* str){
-  while(*str>=' ')str++;               //skip string
-  while( (*str<' ')&&(*str!=0) )str++; //skip crlf
-  return str;
-}
-
-
-char* skipWord(char* str){ // ' ' ','
-  while( (*str>' ')&&(*str!=',')  )str++;
-  while( (*str<' ')&&(*str!=0) )str++; //skip crlf
-  return str;
 }
 
 
@@ -90,51 +64,29 @@ char* strPrint(char* dest,const char* format, ... ){
   return dest;
 }
 
-
-//format = "%i,%f %s" int float string
-void LOGF(const char* format, ... ){
-  if(!usbEnabled)
-    return;
-  char* ptmp = tmpstr;
-  va_list argList;
-  va_start(argList, format);
-  char* pf = (char*)format;
-  while(*pf!=0){
-    if(*pf!='%'){*ptmp = *pf;ptmp++;}
-    else{
-      if(ptmp>tmpstr){
-        *ptmp=0;
-        ptmp = tmpstr;
-        SerialUSB.print(tmpstr);
-      }      
-      pf++;
-      switch(*pf){
-        case 'i':SerialUSB.print(va_arg(argList, int));break;
-        case 'f':SerialUSB.print(va_arg(argList, double));break;
-        case 's':SerialUSB.print(va_arg(argList, char*));break;
-        default: pf--;break; //type not handled
-      }
-    }
-    pf++;
+char* strchr(char* sce,char c){
+  while(*sce!=0){
+    if(*sce==c)
+      return sce;
+    sce++;
   }
-  va_end(argList);
-  if(ptmp>tmpstr){
-    *ptmp=0;
-    SerialUSB.print(tmpstr);
-  }
+  return NULL;
 }
 
-//find cs in str , returns str* after string found , NULL if not found !!! END of str: <' ' !!!
+//find cs in str , returns str* after string found  
 char* strFind(char* str,const char* cs){
-  char* pt;
-  char* ps;
-  while(*str>=' '){ // 0 or CRLF = end of string
-    pt = (char*)cs;
-    ps = str;
-    while((*ps == *pt)&&(*ps!=0)){
-      ps++;pt++;
-      if(*pt==0)
-        return ps;
+  char* pt = (char*)cs;
+  char* ps = str;
+  while(*str != 0 ){
+    if(*str == *pt){
+      ps=str;
+      do{
+        if(*pt==0)
+          return ps;
+        ps++;
+        pt++;
+      }while((*ps == *pt)&&(*ps!=0));
+      pt = (char*)cs;
     }
     str++;
   }
@@ -181,27 +133,13 @@ char* firstNum(char* str){
   return str;
 }
 
-
 char* parseInt(char* str,int* result){
-  while( ((*str<'-')||(*str>'9'))&&(*str>=' ') )str++;  
-  if( *str>' ' ){
-    //SerialUSB.print(" atoi:");SerialUSB.print(str);
-    *result = atoi(str);
-    do{ str++; }while( (*str>='0')&&(*str<='9') ); //skip num
-    //SerialUSB.print(" atoi:");SerialUSB.print(str);
+  char* next = firstNum(str);
+  if(next!=NULL){
+    *result = atoi(next);
+    do{ next++; }while( (*next>='0')&&(*next<='9') );
+    return next;
   }
   return str;
-}
-
-int parseInt(char** ppstr,int prev){
-  char* str = *ppstr;
-  int r = prev;
-  while( ((*str<'-')||(*str>'9'))&&(*str>=' ') )str++;  //skip to num
-  if( *str>' ' ){
-    r = atoi(str);
-    do{ str++; }while( (*str>='0')&&(*str<='9') ); //skip - num
-  }
-  *ppstr = str;
-  return r;
 }
 

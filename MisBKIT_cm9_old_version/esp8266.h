@@ -14,7 +14,6 @@ class ESP : public XSerial {
   public:
   //ESP();
   boolean ready;
-  unsigned int timeRef;
   int stationState;
   int whenOK;
   int lastError;
@@ -30,7 +29,7 @@ class ESP : public XSerial {
 
   //-------------------------------------------------
   boolean startSAP(const char* ssid,const char* psw);
-  boolean connectTo(const char* ssid,const char* psw,int cm9num); //const char* stip);
+  boolean connectTo(const char* ssid,const char* psw,const char* stip);
   
   void update( unsigned long t );
  
@@ -46,6 +45,7 @@ class ESP : public XSerial {
   //boolean    send(int len,char* buf);
   void cipState();
   
+  void readIPD();
   void onOK();
   void onWIFI();
   
@@ -53,7 +53,6 @@ class ESP : public XSerial {
   boolean waitOKorERROR();
   boolean waitString(const char* str);
   int waitString(); 
-  char* readIPD();
   
   int  getLocalIPs();
   void getSapIP();
@@ -71,35 +70,17 @@ class ESP : public XSerial {
   int  ipdLength;
   char ipdBuffer[2048];
   
-  int   bufSendIndex;
-  uint8 bufSend[1024];
-  
   int nbConnected;
   char ipSAP[24];  //ip Soft Access Point
   char ipSTA[24];  //ip Station
   char clientIP[24];//123.123.123.123,12345
   char remoteIP[24];//123.123.123.123 16char max
   char cmdSend[64];
-  char cmdSendTCP[64];
   //char cmdBroadcast[64];
   
-  void writeToBuffer( char* str );
-  void writeToBuffer(uint8* pu,int len);
-  boolean flushBuffer();
-  
-    
   int cipStatus;
   char cipType[8];
-
-  int cipMux;
-  int muxRcvID;
-  int msgGood;
-  int msgCount;
-  void startTCPserver(int port);
-  boolean sendTCP(uint8* buf,int len);
-
-
- 
+   
 };
 
 extern ESP xSerialESP;
