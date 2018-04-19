@@ -1,9 +1,11 @@
+#if 0
 #include "libpandora_types.h"
 #include "Arduino-compatibles.h"
 #include "Dynamixel.h"
 #include "dxl_constants.h"
 
 #include "DxlEngine.h"
+#include "DxlMotor.h"
 #include "XSerial.h"
 #include "esp8266.h"
 #include "utils.h"
@@ -13,6 +15,7 @@ extern Dynamixel Dxl;
 
 //#define NB_ENGINES 6
 DxlEngine engines[NB_ENGINES];
+//DxlMotor  motors[NB_ENGINES];
 
 //extern EEPROM CM9_EEPROM;
 extern XSerial* pSerial;
@@ -31,8 +34,6 @@ extern int dxlRead(int imot,int ireg);
 #define TASK_WHEEL 2
 
 
-//extern const int NB_ENGINES;
-//extern DxlEngine engines[];
 extern byte dxlAdrr[];
 
 
@@ -72,6 +73,9 @@ void DxlEngine::initialize(){ //TODO baud rate , nb engines
   }
   updateTime = millis();
 }
+
+
+
 
 int scanDelay = 0;
 
@@ -124,7 +128,7 @@ boolean DxlEngine::task(unsigned long t){
         else{
           LOGUSB("scan:",scanId);
           xSerialESP.sendf("ping %i\n",scanId);
-          int p = Dxl.ping(scanId);          
+          int p = Dxl.ping(scanId);      
           int m = (int)Dxl.readWord(scanId,P_MODEL);
           if(p<0xFF)
             //serialSend("pong",scanIndex,scanId,m); //,dxlTxtBuffer);
@@ -346,7 +350,16 @@ void DxlEngine::execCmd(char* pcmd,float* pParams,int nbParams){
         }
       }
       break;
-      
+    case 'M': //"Motor index,dxlID,mode
+      if(strBegin(pcmd,"Motors")){
+        int im = (int)pParams[0];
+        if( (im<NB_ENGINES) && (nbParams>1) ){
+          engines[im].dxlId   = (int)pParams[1];
+          if(nbParams>2)
+            engines[im].cmdMode = (int)pParams[2];
+        }
+      }    
+      break;   
     case 'v':
       if(strBegin(pcmd,"version")){
         LOGUSB("VERSION:","3.7");
@@ -438,7 +451,7 @@ int DxlEngine::pushGoalSpeed(){
 void DxlEngine::syncGoalSpeeds(){
   Dxl.setTxPacketLength(0);
   Dxl.pushByte(P_GOAL_POSITION_L);
-  Dxl.pushByte(4); //2 words
+  Dxl.pushByte(4); //4 words
   int len = 2;
   for(int i=0;i<NB_ENGINES;i++){
     int g = engines[i].cmdGoal;   
@@ -1071,9 +1084,9 @@ void DxlEngine::debug(){
 
 // =========================================
 void DxlEngine::sendAllPos(){ //!!! not safe 
-  char* pstr = str2str(dxlTxtBuffer,"ipos");
+  char* pstr = str2str(dxlTxtBuffer,"dxlpos");
   for(int i=0;i<NB_ENGINES;i++){
-    int p=(engines[i].currPos); //!!!FORCE_MX28
+    int p=(engines[i].currPos);
       pstr = int2str(pstr,',',p);
   }
   pstr[0]=13;
@@ -1093,7 +1106,7 @@ void DxlEngine::sendAllIds(){ //!!! not safe
   //serialSend(dxlTxtBuffer);
   pSerial->print(dxlTxtBuffer);
 }
-
+#endif
 
 
 

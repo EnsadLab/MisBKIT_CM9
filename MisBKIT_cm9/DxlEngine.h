@@ -44,8 +44,10 @@
 
 #include "libpandora_types.h"
 #include "Arduino-compatibles.h"
+#include "DxlMotor.h"
 //#include Script.h
 
+#if 0
 extern void dxlWriteWord(uint8 id,uint8 addr,word val);
 
 
@@ -73,6 +75,7 @@ class DxlEngine
   
   DxlEngine();
   DxlEngine(int id);
+    
   void init();
   void setId(int id);
   int getModel();
@@ -122,6 +125,8 @@ class DxlEngine
   void debug();
 
 static void initialize();
+
+
 static void update();
 static boolean task(unsigned long t);
 static void listenSerial();
@@ -154,6 +159,6 @@ static char* txtBuffer;
 };
 
 extern DxlEngine engines[];
-
+#endif
 
 #endif
