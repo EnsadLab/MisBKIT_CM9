@@ -5,16 +5,17 @@
 #include "DxlEngine.h"
 #include "XSerial.h"
 #include "esp8266.h"
-#include "osc.h"
+//#include "osc.h"
 
-#define USE_ANALOGS
+const int   cm9Num = 9;                //TOTHINK changeable --> EEPROM
 
-const char* cm9Name="CM9_06";   //Soft Access Point ssid //TOTHINK changeable
-const char* cm9Pswd  ="ensad-mbk06";  //password
+const int version[2] = {5,0};
 
-const char* routerSSID ="MisBKit00";  //Router ssid
-const char* routerPswd ="ensadmbk00"; //password
-const char* staticIP   ="10.0.0.206"; // 200 + cm9Num 
+char cm9Name[8] = "CM9_00";            //modifié par cm9Num
+char cm9Pswd[16] = "ensad-mbk00";      //modifié par cm9Num
+const char* routerSSID ="MisBKit00";   //Router ssid  //TOTHINK changeable --> EEPROM
+const char* routerPswd ="ensadmbk00";  //password
+//const char* staticIP   ="10.0.0.209"; // 200 + cm9Num 
 
 const int localPort  = 41234;
 const int remotePort = 41235; 
@@ -35,7 +36,7 @@ HardwareTimer ledTimer(1);
 //--------------------------------
 
 unsigned long loopTime = 0;
-unsigned long teaTime = 0;
+unsigned long cmdTime = 0;
 int blinkCount = 0;
 int blinkMax   = 2;
 boolean fatalError = false;
@@ -43,8 +44,9 @@ boolean fatalError = false;
 //====================================================
 void setup() 
 {
-  ledTimer.pause();
+  //fast blink while setup
   pinMode(BOARD_LED_PIN, OUTPUT);
+  ledTimer.pause();
   ledTimer.setPeriod(50000); // in microseconds
   ledTimer.setMode(TIMER_CH1, TIMER_OUTPUT_COMPARE);
   ledTimer.setCompare(TIMER_CH1, 1);
@@ -63,79 +65,121 @@ void setup()
 
   pinMode(BUTTON_PIN, INPUT_PULLDOWN);
   digitalWrite(BOARD_LED_PIN, LOW);    //setup: led on
+  
+  char* p0 = strchr(cm9Pswd,'0');
+  if(cm9Num>10){
+    itoa(cm9Num,&cm9Name[4],10);
+    itoa(cm9Num,p0,10);
+  }
+  else{
+    itoa(cm9Num,&cm9Name[5],10);
+    itoa(cm9Num,p0+1,10);
+  }
 
-  //xSerialUSB.begin(115200); //INUTILE !!! ?
-      
-  delay(1000);
+  //xSerialUSB.begin(115200); //INUTILE !!! ?      
+  //delay(1000);
   xSerialESP.begin(115200);
   pSerial = &xSerialESP;
 
-  //flush
-  for(int i=0;i<10;i++){
-    delay(100);
-    while( xSerialESP.readStr() != NULL ){}
-  }
+  //TODO flush ?
 
-  //xSerialESP.restart();
-  if( !xSerialESP.connectTo(routerSSID,routerPswd,staticIP) )
-    xSerialESP.startSAP(cm9Name,cm9Pswd);
+  if( !xSerialESP.connectTo(routerSSID,routerPswd,cm9Num) ) //try router connection , static ip
+    xSerialESP.startSAP(cm9Name,cm9Pswd);                   //create acces point 
+
+  ledTimer.pause();
+  digitalWrite(BOARD_LED_PIN, LOW);//led on
     
-  delay(500);
-  DxlEngine::initialize();
-  delay(500);
+  //DxlEngine::initialize();
+  dxlInitialize();
 
+  xSerialESP.startTCPserver(localPort);
   loopTime = millis();
   
-  ledTimer.pause();
-
-  digitalWrite(BOARD_LED_PIN, HIGH);//led off
-
   //eeprom.begin();
   //saveRouter();
-
+  cmdTime  = millis();
+  loopTime = millis();
 }
 
 void toggleLed(void){
   toggleLED();
 }
 
-void blinkFatal(){
-  //delay(40);
-  //toggleLED();
-}
-
 void loop()
 {
-  if(fatalError){
-    //blinkFatal();
-    //return;
-    fatalError = false;
+  int rcvCount = 0;
+  char* rcv = xSerialESP.readStr();
+  while(rcv!=NULL){
+    //LOGUSB("rcv:",rcv);
+    mbkParseStr(rcv);
+    rcvCount++;
+    rcv = xSerialESP.readStr();
   }
+    
+  //if(xSerialESP.lastError !=0 )
+  //  fatalError = true;
+
+  unsigned long t = millis();
+  if( (t-loopTime)>=50 ){
+    loopTime=t;
+    mbkUpdate();
+    xSerialESP.flushBuffer();
+
+    if(++blinkCount>blinkMax){  //slow blink
+      blinkCount=0;
+      digitalWrite(BOARD_LED_PIN, LOW);      
+    }
+    else if(blinkCount==1)
+      digitalWrite(BOARD_LED_PIN, HIGH);          
+  }
+
+  usbComnandLine();
+
   
+  
+  
+  /*
+  if(rcvCount>0){
+    unsigned int t = millis();
+    unsigned int dt = t-cmdTime;
+    cmdTime = t;
+    sendMessage();
+  }
+  */
+  
+}
+
+void usbComnandLine(){
   while(xSerialUSB.available()){
     char* str = xSerialUSB.readStr();
     if(str!=NULL){
-      usbEnabled = true; //enable usb logs
-      //SerialUSB.print(str);
+      usbEnabled = true; //enable LOGUSB
       if(strBegin(str,"AT")){
-        Serial2.print(str);
+        LOGUSB("esp>>",str);
+        Serial2.print(str);  //direct print, no buffering
       }
       else{
         SerialUSB.print("echo:");SerialUSB.println(str);
         switch( *str ){
           case 'h':
-          case '?': xSerialESP.usbReport();
+          case '?':
+              LOGUSB("cm9:",cm9Name);
+              LOGUSB("psw:",cm9Pswd);
+              xSerialESP.usbReport();
             break;
           case 's': xSerialESP.startSAP(cm9Name,cm9Pswd);
             break;
-          case 'r': xSerialESP.connectTo(routerSSID,routerPswd,staticIP);
+          case 'r': 
+              xSerialESP.connectTo(routerSSID,routerPswd,cm9Num);
+              xSerialESP.startTCPserver(localPort);
             break;
           case 'a': xSerial2.println("AT"); break;
           case 'c': xSerialESP.getConnectedIPs(); break;
           case 'u':
             xSerialESP.startUDP("192.168.4.7,41235");
             break;
-          case 't': 
+          case 't':
+            /*
             //oscSend(&xSerialESP,"/mbk/pos",",i",engines[0].currPos);
             //oscSend(&xSerialESP,"/mbk/pos",",i",123);
             //engines[0].update(0);
@@ -143,6 +187,8 @@ void loop()
             #ifdef USE_OSC
             oscSend(&xSerialESP,"/mbk/pos",",ii",engines[0].currPos,engines[1].currPos);
             #endif
+            */
+            xSerialESP.startTCPserver(1337);
             break;
           case 'o':
             if( strBegin(str,"off")){
@@ -160,42 +206,68 @@ void loop()
         }
       }
     }//str
-  }//usb available
-  
-  char* rcv = xSerialESP.readStr();
-  while(rcv!=NULL){
-    /*    
-    if(*rcv == '/'){
-      useOSC = true;
-      DxlEngine::parseOsc(rcv);
-    }
-    else{
-        useOSC = false;
-        //LOGUSB("parseCmd:",rcv);
-        DxlEngine::parseCmd(rcv);
-      }
-    */
-    rcv = xSerialESP.readStr();
-  }
-  
-  //mbkUpdate();
-  if(xSerialESP.lastError !=0 )
-    fatalError = true;
-
-  unsigned long t = millis();
-  if( (t-loopTime)>=50 ){
-    loopTime=t;
-    if(++blinkCount>blinkMax){
-      blinkCount=0;
-      digitalWrite(BOARD_LED_PIN, LOW);      
-    }
-    else if(blinkCount==1)
-      digitalWrite(BOARD_LED_PIN, HIGH);          
-  }
-  
-  mbkUpdate();  
+  }//usb available  
 }
 
+
+
+/*
+void setRouter(char* pstr){
+  if(pstr==NULL)
+    return;
+  //remove crlf
+  char* crlf = strchr(pstr,(char)10);
+  if(crlf!=NULL)*crlf=0;
+  crlf = strchr(pstr,(char)13);
+  if(crlf!=NULL)*crlf=0;
+
+  LOGUSB("setRouter:",pstr);
+  char* ssid = strchr(pstr,':');
+  if(ssid!=NULL){
+    ssid++;
+    char* psw  = strchr(ssid,':');
+    if(psw!=NULL){
+      *psw = 0;
+      psw++;
+      LOGUSB(" ssid:",ssid);
+      LOGUSB("  psw:",psw);      
+    }
+  }
+  
+  
+  
+}
+
+
+void saveRouter(char* pstr){
+  //char* pstr = (char*)routerSSID;
+  int addr = 0;
+  while(pstr[addr]!=0){
+    eeprom.write(addr,pstr[addr]);
+    addr++;
+  }    
+  eeprom.write(addr,0);
+  LOGUSB("saved:",pstr);
+}
+
+void readRouter(){
+  char str[20];
+  for(int i=0;i<16;i++){
+    str[i]='a'+i;
+  }
+  str[16]=0;  
+  int addr = 0;
+  while(addr<16){
+    char c = eeprom.read(addr);
+    str[addr++]=c;
+    if(c==0)
+      break;
+  }
+  LOGUSB("eeprom:",str);
+
+  
+}
+*/
 
 
  
