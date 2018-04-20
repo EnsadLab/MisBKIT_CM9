@@ -91,7 +91,8 @@ char* dxlParseStr(char* str){
     str = parseInt(str,&v);
     if( (i>=0)&&(a>=0)&&(v>=0) ){
       dxlWrite(i,a,v);
-    }      
+    }   
+    xSerialESP.sendf("dxlR %i %i %i\n",i,a,v); //send confirmation
     LOGF("dxlW i:%i a:%i v:%i\n",i,a,v);
   }
   else if(strBegin(str,"R")){ //dxlRead id,addr //dxlRb dxlRw
@@ -170,7 +171,7 @@ void dxlWriteWord(uint8 id,uint8 addr,word val)
   Dxl.txPacket(id,INST_WRITE,3);
 }
 
-void dxlWrite(int id,int addr,int value)
+void dxlWrite(int id,int addr,int value) //
 {
   if(addr>48)
     return;
